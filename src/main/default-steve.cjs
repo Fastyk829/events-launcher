@@ -7,6 +7,11 @@ const yauzl = require('yauzl');
 const STEVE_ENTRY = 'assets/minecraft/textures/entity/player/wide/steve.png';
 const MAX_STEVE_BYTES = 256 * 1024;
 
+let cachedSteve = null;
+let cachedJarPath = null;
+let cachedMtime = 0;
+let cachedSize = 0;
+
 /**
  * Extracts the actual modern Steve skin from the official, already installed
  * Minecraft 1.21.1 client archive. Does not download or redistribute Mojang
@@ -20,6 +25,9 @@ async function loadDefaultSteve(minecraftRoot, version = '1.21.1') {
     throw error;
   });
   if (!metadata?.isFile()) return null;
+  if (cachedSteve && cachedJarPath === jar && cachedMtime === metadata.mtimeMs && cachedSize === metadata.size) {
+    return cachedSteve;
+  }
 
   return new Promise((resolve, reject) => {
     yauzl.open(jar, { lazyEntries: true, autoClose: true }, (error, zip) => {
@@ -66,7 +74,12 @@ async function loadDefaultSteve(minecraftRoot, version = '1.21.1') {
               finish(new Error('Minecraft содержит неподдерживаемую текстуру Steve'));
               return;
             }
-            finish(null, 'data:image/png;base64,' + bytes.toString('base64'));
+            const dataUrl = 'data:image/png;base64,' + bytes.toString('base64');
+            cachedSteve = dataUrl;
+            cachedJarPath = jar;
+            cachedMtime = metadata.mtimeMs;
+            cachedSize = metadata.size;
+            finish(null, dataUrl);
           });
         });
       });

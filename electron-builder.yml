@@ -9,6 +9,7 @@ files:
   - game-runtime.json
   - src/main/**/*
   - src/main/game-runtime.cjs
+  - src/main/download-progress.cjs
   - src/main/mod-integrity-guard.cjs
   - src/main/install-error.cjs
   - src/main/minecraft-downloads.cjs
@@ -35,6 +36,7 @@ publish:
   owner: Fastyk829
   repo: events-launcher
 nsis:
+  artifactName: "Events-Launcher-Setup-${version}.${ext}"
   installerIcon: assets/launcher.ico
   uninstallerIcon: assets/launcher.ico
   oneClick: false

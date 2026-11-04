@@ -25,6 +25,30 @@ function formatGb(mb: number): string {
   return (mb / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' ГБ';
 }
 
+function getDownloadStageTitle(detail: string): string {
+  if (!detail) return 'Подготовка…';
+  const colonIndex = detail.indexOf(':');
+  if (colonIndex > 0) {
+    return detail.slice(0, colonIndex).trim();
+  }
+  return detail;
+}
+
+function getDownloadMeta(progress?: RuntimeState['downloadProgress']): string | null {
+  if (!progress) return null;
+  const parts: string[] = [];
+  if (progress.bytesText) {
+    parts.push(progress.bytesText);
+  } else if (progress.total > 0) {
+    const dMb = (progress.downloaded / (1024 * 1024)).toFixed(1);
+    const tMb = (progress.total / (1024 * 1024)).toFixed(1);
+    parts.push(`${dMb} / ${tMb} МБ`);
+  }
+  if (progress.speed) parts.push(progress.speed);
+  if (progress.eta) parts.push(progress.eta);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 function App() {
   const [state, setState] = useState<RuntimeState>(initialState);
   const [settings, setSettings] = useState<LauncherSettings | null>(null);
@@ -78,6 +102,12 @@ function App() {
     }).catch((error: unknown) => {
       console.error('Failed to read launcher settings:', error);
     });
+    void window.eventsLauncher.getSkins().then((library) => {
+      if (mounted) setSkins(library);
+    }).catch(() => {});
+    void window.eventsLauncher.getDefaultSteve().then((steve) => {
+      if (mounted) setDefaultSteve(steve);
+    }).catch(() => {});
     return () => { mounted = false; unsubscribe(); unsubscribeUpdate(); };
   }, []);
 
@@ -104,16 +134,22 @@ function App() {
   async function openSettings() {
     setSettingsError(null);
     setSkinError(null);
+    if (settings) {
+      setDraftNickname(settings.nickname);
+      setDraftMemoryMb(settings.memoryMb);
+      setDraftGpuPreference(settings.gpuPreference);
+      setDraftJvmArguments(settings.jvmArguments ?? '');
+      setSettingsOpen(true);
+    }
     try {
-      const [saved, library] = await Promise.all([
-        window.eventsLauncher.getSettings(), window.eventsLauncher.getSkins(),
-      ]);
-      // Absence is expected until Minecraft 1.21.1 has been installed.
-      const steve = await window.eventsLauncher.getDefaultSteve()
-        .catch((error: unknown) => {
+      const [saved, library, steve] = await Promise.all([
+        window.eventsLauncher.getSettings(),
+        window.eventsLauncher.getSkins(),
+        defaultSteve ? Promise.resolve(defaultSteve) : window.eventsLauncher.getDefaultSteve().catch((error: unknown) => {
           console.error('Не удалось прочитать стандартный Steve:', error);
           return null;
-        });
+        }),
+      ]);
       setDefaultSteve(steve);
       setSkins(library);
       setSettings(saved);
@@ -267,13 +303,22 @@ function App() {
           </div>
           {projectWarSelected && busy && !state.error && (
             <div className="game-download-progress">
-              <span title={state.detail || undefined}>{state.detail || 'Подготовка…'}</span>
+              <div className="game-download-info">
+                <span className="game-download-stage" title={state.detail || undefined}>
+                  {getDownloadStageTitle(state.detail)}
+                </span>
+                {getDownloadMeta(state.downloadProgress) && (
+                  <span className="game-download-meta" title={getDownloadMeta(state.downloadProgress) || undefined}>
+                    {getDownloadMeta(state.downloadProgress)}
+                  </span>
+                )}
+              </div>
               <progress max={state.downloadProgress?.total || 1}
                 value={state.downloadProgress ? state.downloadProgress.downloaded : undefined}
                 aria-label="Прогресс текущего этапа установки" />
             </div>
           )}
-          {projectWarSelected && (state.error || (!busy && statusVisible)) && (
+          {projectWarSelected && (state.error || (!busy && !running && statusVisible)) && (
             <div className={'status-line' + (state.error ? ' status-error' : '')}
               role="status" aria-live="polite">
               {state.error && <CircleAlert size={14} />}

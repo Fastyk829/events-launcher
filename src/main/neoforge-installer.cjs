@@ -10,6 +10,7 @@ const { Readable, Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const runtime = require('../../game-runtime.json');
 const { withMinecraftDownloads } = require('./minecraft-downloads.cjs');
+const { DownloadProgressMeter } = require('./download-progress.cjs');
 
 const MAX_INSTALLER_BYTES = 32 * 1024 * 1024;
 
@@ -48,7 +49,7 @@ async function downloadNeoForgeInstaller(directory, fetcher, onRetry = () => {})
     // fallback; Node's direct TLS route may time out on this Maven CDN.
     const { net } = require('electron');
     return withMinecraftDownloads(options => downloadNeoForgeInstaller(directory,
-      net ? net.fetch.bind(net) : options.fetch), onRetry);
+      net ? net.fetch.bind(net) : options.fetch, onRetry), onRetry);
   }
   const { url, sha256 } = installerSource();
   await mkdir(directory, { recursive: true });
@@ -71,6 +72,13 @@ async function downloadNeoForgeInstaller(directory, fetcher, onRetry = () => {})
     if (!response.ok || !response.body || response.status !== 200) {
       throw new Error(`neoforge_download_failed:${response.status}`);
     }
+    const contentLength = Number(response.headers.get('content-length')) || 0;
+    const meter = new DownloadProgressMeter({
+      label: 'Скачиваем установщик NeoForge',
+      total: contentLength,
+      onProgress: onRetry,
+    });
+    meter.emit();
     let received = 0;
     const hash = createHash('sha256');
     const check = new Transform({
@@ -81,6 +89,7 @@ async function downloadNeoForgeInstaller(directory, fetcher, onRetry = () => {})
           return;
         }
         hash.update(chunk);
+        meter.update(received, contentLength);
         callback(null, chunk);
       },
     });

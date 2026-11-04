@@ -8,6 +8,7 @@ const { lstat, mkdir, readdir, rename, rm } = require('node:fs/promises');
 const { join } = require('node:path');
 const { Readable, Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
+const { DownloadProgressMeter } = require('./download-progress.cjs');
 
 const API = new URL('https://api.modrinth.com/v2/project/customskinloader/version');
 API.searchParams.set('loaders', JSON.stringify(['neoforge']));
@@ -72,6 +73,12 @@ async function ensureSkinLoader(gameDir, onProgress = () => {}, fetcher = fetch)
       headers: { 'User-Agent': 'EventsLauncher/0.1' },
     });
     if (!res.ok || !res.body) throw new Error('Не удалось скачать CustomSkinLoader: HTTP ' + res.status);
+    const meter = new DownloadProgressMeter({
+      label: 'Скачиваем CustomSkinLoader',
+      total: asset.size,
+      onProgress,
+    });
+    meter.emit();
     const hash = createHash('sha512');
     let total = 0, header = Buffer.alloc(0);
     const checksum = new Transform({
@@ -80,6 +87,7 @@ async function ensureSkinLoader(gameDir, onProgress = () => {}, fetcher = fetch)
         if (total > MAX_JAR_BYTES) return callback(new Error('Слишком большой файл мода скинов'));
         if (header.length < 4) header = Buffer.concat([header, chunk]).subarray(0, 4);
         hash.update(chunk);
+        meter.update(total, asset.size);
         callback(null, chunk);
       },
     });

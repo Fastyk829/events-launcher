@@ -13,6 +13,7 @@ const yauzl = require('yauzl');
 const config = require('../../project-war.modpack.json');
 const { withMinecraftDownloads } = require('./minecraft-downloads.cjs');
 const { fetchWithIdleTimeout } = require('./storage-fetch.cjs');
+const { DownloadProgressMeter } = require('./download-progress.cjs');
 
 const MAX_PACK_BYTES = 12 * 1024 * 1024 * 1024;
 const MAX_FILES = 30_000;
@@ -157,46 +158,26 @@ async function downloadArchive(root, onProgress, fetcher, manifest = config, sta
         await response.body.cancel();
         throw new Error('Диск вместо ZIP вернул страницу подтверждения доступа. Проверь публичную ссылку; для больших файлов удобнее Яндекс Диск.');
       }
+      const contentLength = Number(response.headers.get('content-length')) || Number(manifest.size) || 0;
+      const targetLabel = source.provider === 'yandex-disk' ? 'Яндекс Диска' : 'Google Drive';
+      const meter = new DownloadProgressMeter({
+        label: 'Скачиваем Project War с ' + targetLabel,
+        total: contentLength,
+        onProgress,
+      });
+      meter.emit();
       const hash = createHash('sha256');
       let size = 0;
-      let lastReport = 0;
-      let lastTime = Date.now();
-      let lastBytes = 0;
-      let currentSpeed = '';
-      const meter = new Transform({
+      const meterStream = new Transform({
         transform(chunk, _encoding, callback) {
-          if (size === 0) {
-            onProgress('Скачиваем Project War с ' +
-              (source.provider === 'yandex-disk' ? 'Яндекс Диска' : 'Google Drive') + '…');
-            lastTime = Date.now();
-            lastBytes = 0;
-          }
           size += chunk.length;
           if (size > MAX_PACK_BYTES) return callback(new Error('ZIP сборки превышает 12 ГБ'));
           hash.update(chunk);
-          const now = Date.now();
-          if (size - lastReport >= 1024 * 1024 || (now - lastTime >= 1000 && size > lastBytes)) {
-            const timeDiff = (now - lastTime) / 1000;
-            if (timeDiff >= 0.8) {
-              const speedBytesPerSec = (size - lastBytes) / timeDiff;
-              const speedMb = speedBytesPerSec / (1024 * 1024);
-              currentSpeed = speedMb >= 1
-                ? `${speedMb.toFixed(1)} МБ/с`
-                : `${(speedBytesPerSec / 1024).toFixed(0)} КБ/с`;
-              lastTime = now;
-              lastBytes = size;
-            }
-            lastReport = size;
-            const mb = (size / 1024 / 1024).toFixed(0);
-            const totalMb = contentLength > 0 ? ' / ' + (contentLength / 1024 / 1024).toFixed(0) : '';
-            const speedText = currentSpeed ? ` (${currentSpeed})` : '';
-            const progress = contentLength > 0 ? { downloaded: size, total: contentLength } : null;
-            onProgress(`Загружено ${mb}${totalMb} МБ${speedText}`, progress);
-          }
+          meter.update(size, contentLength);
           callback(null, chunk);
         },
       });
-      await pipeline(Readable.fromWeb(response.body), meter, createWriteStream(temp, { flags: 'wx' }));
+      await pipeline(Readable.fromWeb(response.body), meterStream, createWriteStream(temp, { flags: 'wx' }));
       if (size === 0 || hash.digest('hex') !== manifest.sha256) {
         throw new Error('SHA-256 архива не совпадает с ожидаемой суммой');
       }
@@ -417,7 +398,7 @@ async function installModpack(root, instanceRoot, onProgress, manifest = config)
   const archive = await downloadArchive(root, onProgress, undefined, manifest);
   const staging = join(root, 'downloads', '.extract-' + randomUUID());
   try {
-    onProgress('Проверяем содержимое ZIP и распаковываем…');
+    onProgress('Проверяем содержимое ZIP и распаковываем…', null);
     const paths = await extractModpack(archive, staging, onProgress);
     if (paths.length === 0 || !paths.some((p) => p.startsWith('mods/'))) {
       throw new Error('В архиве нет папки mods/ с модами');

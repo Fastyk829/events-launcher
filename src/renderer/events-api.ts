@@ -1,5 +1,14 @@
+export type DownloadProgress = {
+  downloaded: number;
+  total: number;
+  speed?: string;
+  eta?: string;
+  bytesText?: string;
+  percent?: number;
+};
+
 export type RuntimeState = {
-  downloadProgress?: { downloaded: number; total: number } | null;
+  downloadProgress?: DownloadProgress | null;
   phase: 'idle' | 'checking-pack' | 'installing' | 'installing-pack' | 'ready' | 'launching' | 'running' | 'error';
   detail: string;
   error: string | null;

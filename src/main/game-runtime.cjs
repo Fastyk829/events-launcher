@@ -25,6 +25,7 @@ const bundledModpack = require('../../project-war.modpack.json');
 const game = require('../../game-runtime.json');
 const { formatInstallError } = require('./install-error.cjs');
 const { withMinecraftDownloads } = require('./minecraft-downloads.cjs');
+const { DownloadProgressMeter } = require('./download-progress.cjs');
 
 const ADOPTIUM_API = 'https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse';
 const MAX_JAVA_ARCHIVE = 250 * 1024 * 1024;
@@ -79,7 +80,7 @@ async function downloadFollowingTrustedRedirects(url, initialHostname, max = MAX
   throw new Error('Слишком много перенаправлений');
 }
 
-async function downloadVerifiedArchive(url, output, expectedHash, maxBytes) {
+async function downloadVerifiedArchive(url, output, expectedHash, maxBytes, onProgress, expectedTotalBytes) {
   const existing = await stat(output).catch(() => null);
   if (existing?.isFile() && existing.size <= maxBytes) {
     const h = createHash('sha256');
@@ -90,6 +91,13 @@ async function downloadVerifiedArchive(url, output, expectedHash, maxBytes) {
   await mkdir(dirname(output), { recursive: true });
   try {
     const response = await downloadFollowingTrustedRedirects(url, 'java');
+    const contentLength = Number(response.headers.get('content-length')) || expectedTotalBytes || 0;
+    const meter = new DownloadProgressMeter({
+      label: 'Скачиваем Java 21',
+      total: contentLength,
+      onProgress,
+    });
+    meter.emit();
     let size = 0;
     const h = createHash('sha256');
     const tracker = new Transform({
@@ -97,6 +105,7 @@ async function downloadVerifiedArchive(url, output, expectedHash, maxBytes) {
         size += chunk.length;
         if (size > maxBytes) return cb(new Error('Слишком большой архив Java'));
         h.update(chunk);
+        meter.update(size, contentLength);
         cb(null, chunk);
       },
     });
@@ -152,12 +161,12 @@ async function ensureJava(root, progress) {
   const res = await fetch(ADOPTIUM_API, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error('Не удалось получить Java 21: HTTP ' + res.status);
   const pkg = javaAsset(await res.json());
-  progress('Скачиваем Java 21 и проверяем SHA-256…');
-  const archive = await downloadVerifiedArchive(pkg.url, join(root, 'downloads', 'temurin21-jre.zip'), pkg.checksum, pkg.size);
+  progress('Скачиваем Java 21…');
+  const archive = await downloadVerifiedArchive(pkg.url, join(root, 'downloads', 'temurin21-jre.zip'), pkg.checksum, pkg.size, progress, pkg.size);
   const stage = join(root, 'java', '.staging-' + randomUUID());
   await mkdir(stage, { recursive: true });
   try {
-    progress('Распаковываем Java 21…');
+    progress('Распаковываем Java 21…', null);
     await extractZip(archive, { dir: stage });
     const java = await findJava(stage);
     if (!java) throw new Error('Архив Java не содержит java.exe');
@@ -281,18 +290,25 @@ class EventGameRuntime {
     return this.snapshot();
   }
 
-  async trackDownload(task) {
-    let lastReport = 0;
+  async trackDownload(task, label = 'Скачиваем Minecraft') {
     this.downloadProgress = null;
-    this.report(this.snapshot());
+    const initialTotal = Math.max(0, Number(task.total) || 0);
+    const meter = new DownloadProgressMeter({
+      label,
+      total: initialTotal,
+      onProgress: (detail, progress) => {
+        this.detail = detail;
+        this.downloadProgress = progress;
+        this.report(this.snapshot());
+      },
+    });
+    meter.emit();
     return task.startAndWait({
       onUpdate: current => {
-        if (current !== task || Date.now() - lastReport < 200) return;
-        lastReport = Date.now();
+        if (current !== task) return;
         const total = Math.max(0, Number(task.total) || 0);
-        const downloaded = Math.min(total, Math.max(0, Number(task.progress) || 0));
-        this.downloadProgress = total > 0 ? { downloaded, total } : null;
-        this.report(this.snapshot());
+        const downloaded = Math.min(total || Number.MAX_SAFE_INTEGER, Math.max(0, Number(task.progress) || 0));
+        meter.update(downloaded, total);
       },
     });
   }
@@ -303,14 +319,14 @@ class EventGameRuntime {
     try {
       await mkdir(this.minecraftRoot, { recursive: true });
       await mkdir(this.instanceRoot, { recursive: true });
-      const java = await ensureJava(this.root, (detail) => this.update('installing', detail));
+      const downloadProgress = (detail, progress = null) => this.update('installing', detail, null, progress);
+      const java = await ensureJava(this.root, downloadProgress);
 
       this.update('installing', 'Скачиваем Minecraft ' + game.minecraftVersion + '…');
-      const downloadProgress = detail => this.update('installing', detail);
       const list = await withMinecraftDownloads(options => getVersionList({ fetch: options.fetch }), downloadProgress);
       const vanilla = list.versions.find((v) => v.id === game.minecraftVersion && v.type === 'release');
       if (!vanilla) throw new Error('Minecraft ' + game.minecraftVersion + ' не найден в манифесте');
-      await withMinecraftDownloads(options => this.trackDownload(installTask(vanilla, this.minecraftRoot, options)), downloadProgress);
+      await withMinecraftDownloads(options => this.trackDownload(installTask(vanilla, this.minecraftRoot, options), 'Скачиваем Minecraft ' + game.minecraftVersion), downloadProgress);
 
       let versionId = await findNeoForgeVersion(this.minecraftRoot);
       if (!versionId) {
@@ -333,7 +349,7 @@ class EventGameRuntime {
 
       this.update('installing', 'Проверяем библиотеки и ресурсы NeoForge…');
       const resolved = await Version.parse(this.minecraftRoot, versionId);
-      await withMinecraftDownloads(options => this.trackDownload(installDependenciesTask(resolved, options)), downloadProgress);
+      await withMinecraftDownloads(options => this.trackDownload(installDependenciesTask(resolved, options), 'Скачиваем библиотеки NeoForge'), downloadProgress);
       await writeFile(marker(this.root), JSON.stringify({
         schemaVersion: 1, minecraft: game.minecraftVersion, neoforge: game.loaderVersion,
         java: game.javaMajor, versionId, installedAt: new Date().toISOString(),
