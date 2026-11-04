@@ -1,0 +1,37 @@
+{
+  "name": "events-launcher",
+  "version": "0.1.24",
+  "private": true,
+  "type": "commonjs",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "package": "npm run build && electron-builder --win nsis",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "dependencies": {
+    "@electron-internal/extract-zip": "1.0.4",
+    "@xmcl/core": "2.15.1",
+    "@xmcl/installer": "6.1.2",
+    "electron-updater": "6.8.11",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "skinview3d": "3.4.2",
+    "three": "0.156.1",
+    "undici": "7.2.3",
+    "yauzl": "3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "electron": "35.7.5",
+    "electron-builder": "26.0.12",
+    "typescript": "5.8.3",
+    "vite": "6.3.5"
+  }
+}

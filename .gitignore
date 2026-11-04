@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+release/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+
+# Local modpack artifacts, never commit ZIP/manifest by accident
+/project-war-release/
+/.work/

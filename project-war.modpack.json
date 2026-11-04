@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "eventId": "project-war",
+  "version": "",
+  "sha256": "",
+  "sources": [
+    {
+      "provider": "yandex-disk",
+      "publicUrl": ""
+    },
+    {
+      "provider": "google-drive",
+      "publicUrl": ""
+    }
+  ],
+  "forceConfigFiles": []
+}

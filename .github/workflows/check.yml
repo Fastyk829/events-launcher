@@ -1,0 +1,58 @@
+name: Check
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+  modpack-tool:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test ZIP and manifest generation on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:RUNNER_TEMP 'sample-modpack'
+          $out = Join-Path $env:RUNNER_TEMP 'sample-release'
+          New-Item -ItemType Directory -Force -Path (Join-Path $source 'mods') | Out-Null
+          [IO.File]::WriteAllText((Join-Path $source 'mods\sample.jar'), 'TEST PLACEHOLDER ONLY')
+          New-Item -ItemType Directory -Force -Path (Join-Path $source 'config') | Out-Null
+          [IO.File]::WriteAllText((Join-Path $source 'config\server.toml'), 'requires=true')
+          [IO.File]::WriteAllText((Join-Path $source 'options.txt'), 'fov:0.75')
+          .\tools\prepare-project-war.ps1 -SourceFolder $source -Version '1.0.0-test' -OutputDirectory $out
+          $zip = Join-Path $out 'project-war.zip'
+          if (-not (Test-Path -LiteralPath $zip)) { throw 'ZIP was not generated' }
+          .\tools\prepare-project-war.ps1 -ZipPath $zip -Version '1.0.0-test' -YandexUrl 'https://disk.yandex.ru/d/ExamplePublicLink' -ForceConfigFiles 'config/server.toml' -OutputDirectory $out
+          $manifestPath = Join-Path $out 'project-war.modpack.json'
+          if (-not (Test-Path -LiteralPath $manifestPath)) { throw 'JSON was not generated' }
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($manifest.sha256 -ne $hash) { throw 'SHA-256 in manifest does not match ZIP' }
+          if ($manifest.version -ne '1.0.0-test' -or $manifest.eventId -ne 'project-war') {
+            throw 'Incorrect manifest metadata'
+          }
+          if ($manifest.forceConfigFiles.Count -ne 1 -or $manifest.forceConfigFiles[0] -ne 'config/server.toml') {
+            throw 'Invalid forceConfigFiles output'
+          }
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            if (-not ($archive.Entries | Where-Object { $_.FullName -eq 'options.txt' })) {
+              throw 'options.txt missing from ZIP'
+            }
+          } finally { $archive.Dispose() }
+          $jsonBytes = [IO.File]::ReadAllBytes($manifestPath)
+          if ($jsonBytes[0] -eq 239 -and $jsonBytes[1] -eq 187 -and $jsonBytes[2] -eq 191) {
+            throw 'The JSON file unexpectedly contains a UTF-8 BOM'
+          }
+          Write-Host 'Windows modpack packaging smoke test passed.'

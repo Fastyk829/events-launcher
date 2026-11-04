@@ -1,0 +1,481 @@
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  color-scheme: dark;
+  color: #f3f3f4;
+  background: #0d0d0e;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 0; overflow: hidden; user-select: none; -webkit-user-select: none; }
+input, textarea, .status-error, .status-error *, .settings-error, .field-error, .selectable-error, [role="alert"] { user-select: text; -webkit-user-select: text; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid #c3c5cd; outline-offset: 3px; }
+button:disabled { opacity: .53; cursor: not-allowed; }
+
+.app {
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: radial-gradient(ellipse at 84% 59%, #212124 0%, #171719 42%, #0d0d0e 85%);
+  transition: background .25s ease-out;
+}
+.app.pack-project-war {
+  background:
+    linear-gradient(to right, rgba(13, 13, 14, 0.95) 0%, rgba(13, 13, 14, 0.82) 42%, rgba(13, 13, 14, 0.45) 75%, rgba(13, 13, 14, 0.35) 100%),
+    linear-gradient(to top, rgba(11, 11, 12, 0.92) 0%, rgba(11, 11, 12, 0.45) 25%, transparent 60%),
+    linear-gradient(to bottom, rgba(13, 13, 14, 0.65) 0%, transparent 20%),
+    url('../../assets/project-war-bg.jpg') center right / cover no-repeat;
+}
+.app-header {
+  flex: 0 0 52px;
+  padding: 12px 35px 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.icon-button {
+  width: 35px; height: 35px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 7px;
+  background: transparent; color: #a5a5ad;
+}
+.icon-button:hover:not(:disabled) { background: #252527; color: white; }
+
+.main-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 100px 8px;
+}
+/* Keep each title/description/action in the same row regardless of selected event.
+   Typography follows the earlier launcher: 58px heading and 14px / 21px description. */
+.main-copy {
+  width: 650px;
+  max-width: 100%;
+  position: relative;
+  display: grid;
+  grid-template-rows: 73px 84px 46px;
+  align-content: center;
+  margin-top: -8px;
+}
+h1 {
+  align-self: start;
+  max-width: 650px;
+  margin: 0;
+  font-size: 58px;
+  line-height: 1.06;
+  font-weight: 720;
+  letter-spacing: -.055em;
+  overflow-wrap: anywhere;
+}
+.description {
+  max-width: 650px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 500;
+  color: #ababaf;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.actions { display: flex; align-items: center; gap: 21px; margin: 0; min-height: 46px; }
+.primary-button {
+  min-width: 184px; height: 43px; padding: 0 20px;
+  border: 1px solid #e5e5e7; border-radius: 6px;
+  display: inline-flex; gap: 12px; justify-content: center; align-items: center;
+  background: #ebebed; color: #111113; font-size: 12px; font-weight: 660;
+}
+.primary-button:hover:not(:disabled) { background: #fff; border-color: #fff; }
+.primary-button:disabled { opacity: .65; }
+.text-button {
+  border: 0; background: transparent; color: #c1c1c6;
+  display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 10px 4px;
+}
+.text-button:hover:not(:disabled) { color: white; }
+.status-line {
+  position: absolute; top: 214px; left: 0;
+  display: flex; align-items: center;
+  gap: 8px; font-size: 12px; line-height: 1.5;
+  color: #c5c5cd; overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+.status-line.status-error { color: #e9a4a4; max-width: 490px; }
+.status-line.below-progress { top: 265px; }
+.game-download-progress {
+  position: absolute; top: 214px; left: 0;
+  width: 460px; max-width: 100%;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.game-download-progress progress {
+  appearance: none; width: 100%; height: 5px;
+  border: 0; border-radius: 3px; overflow: hidden;
+  background: rgba(255, 255, 255, .15); accent-color: #ebebed;
+}
+.game-download-progress progress::-webkit-progress-bar { background: rgba(255, 255, 255, .15); }
+.game-download-progress progress::-webkit-progress-value { background: #ebebed; border-radius: 3px; }
+.game-download-progress progress:indeterminate { opacity: .5; }
+.game-download-progress span {
+  display: block;
+  height: 18px; line-height: 18px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #c5c5cd; font-size: 12px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+.pack-bar {
+  position: relative;
+  flex: 0 0 70px; display: flex; align-items: stretch; justify-content: center;
+  padding: 0 35px;
+  border-top: 1px solid rgba(255, 255, 255, .10);
+  background: rgba(11, 11, 12, .65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.player-nickname-box {
+  position: absolute;
+  left: 35px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 195px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .035);
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.player-nickname-box:hover {
+  background: rgba(255, 255, 255, .06);
+  border-color: rgba(255, 255, 255, .18);
+}
+.player-nickname-box:focus-within {
+  background: #151518;
+  border-color: #c5c5cb;
+  box-shadow: 0 0 0 1px #c5c5cb;
+}
+.player-nickname-box.invalid {
+  border-color: #e9a4a4;
+}
+.player-nickname-icon {
+  color: #8c8c95;
+  flex-shrink: 0;
+  transition: color .15s;
+}
+.player-nickname-box:focus-within .player-nickname-icon {
+  color: #f3f3f4;
+}
+.player-nickname-input,
+.player-nickname-input:focus,
+.player-nickname-input:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent;
+  color: #f3f3f4;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.player-nickname-input::placeholder {
+  color: #6e6e76;
+  font-weight: 400;
+}
+.player-nickname-input:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.pack-options { display: flex; align-items: stretch; gap: 8px; }
+.pack-option {
+  display: inline-flex; gap: 9px; align-items: center;
+  border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: #a5a5ac;
+  padding: 0 22px; font-size: 12px;
+  transition: color .15s, background .15s;
+}
+.pack-option:hover { color: #f3f3f4; background: rgba(255,255,255,.035); }
+.pack-option.selected { color: #f4f4f5; border-bottom-color: #e4e4e6; background: rgba(255,255,255,.045); }
+.soon { color: #797981; font-size: 10px; }
+
+.settings-overlay {
+  position: fixed; inset: 0; z-index: 10;
+  background: rgba(0,0,0,.66); display: flex;
+  align-items: center; justify-content: center; padding: 16px;
+}
+.settings-dialog {
+  width: 415px; max-width: 100%; max-height: calc(100vh - 54px);
+  overflow: hidden; padding: 26px 29px 28px;
+  background: #19191c; border: 1px solid #3c3c42;
+  border-radius: 12px; box-shadow: 0 22px 70px #0009;
+}
+.settings-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 27px; }
+.settings-head h2 { font-size: 19px; font-weight: 700; margin: 0; }
+.setting-field { margin-bottom: 26px; }
+.setting-field label { display: block; font-size: 12px; font-weight: 650; margin-bottom: 12px; }
+.setting-field input[type="text"], .setting-field input:not([type]) {
+  width: 100%; height: 42px; padding: 0 13px;
+  border: 1px solid #494950; border-radius: 6px;
+  background: #101012; color: #ededee; font-size: 13px;
+}
+/* A focused nickname input gets one border, not the global offset outline
+   on top of its existing border (which looks like a second textbox). */
+#player-name:focus {
+  outline: none;
+  border-color: #c3c5cd;
+}
+.setting-field input::placeholder { color: #6d6d76; }
+.field-error, .settings-error { display: block; color: #f1a8a8; font-size: 11px; margin-top: 8px; }
+.memory-field { margin-bottom: 33px; }
+.memory-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.memory-head strong { font-size: 12px; font-weight: 700; color: #efeff0; }
+.memory-field input[type="range"] {
+  display: block; width: 100%; margin: 10px 0 9px;
+  accent-color: #e3e3e5; cursor: pointer;
+}
+.memory-limits { display: flex; justify-content: space-between; font-size: 10px; color: #86868d; }
+.settings-error { margin: 0 0 20px; overflow-wrap: anywhere; }
+
+/* Only show update UI when a release is available. Normal screen stays minimal. */
+.launcher-update-banner {
+  position: absolute;
+  top: 58px;
+  right: 35px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  max-width: 390px;
+  min-height: 44px;
+  padding: 9px 12px 9px 15px;
+  background: #222226;
+  border: 1px solid #3e3e44;
+  border-radius: 7px;
+  color: #d9d9dd;
+  font-size: 11px;
+  box-shadow: 0 12px 28px #0005;
+}
+.launcher-update-banner button {
+  flex-shrink: 0;
+  min-width: 95px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: #e8e8ea;
+  color: #18181a;
+  font-size: 11px;
+  font-weight: 650;
+}
+.launcher-update-banner button:hover:not(:disabled) { background: white; }
+
+.gpu-field { margin-top: -3px; margin-bottom: 26px; }
+.gpu-field select {
+  display: block; width: 100%; height: 42px;
+  padding: 0 12px; border: 1px solid #494950; border-radius: 6px;
+  background: #101012; color: #ededee; font-size: 12px;
+  cursor: pointer;
+}
+.gpu-hint {
+  margin: 9px 0 0; color: #898991;
+  font-size: 10px; line-height: 1.55;
+}
+
+.skin-model-row {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 285px; min-height: 34px; margin: 5px auto 0; gap: 10px;
+}
+.skin-model-label {
+  flex: 0 0 auto; color: #c5c5c9; font-size: 11px;
+}
+.skin-model-switch {
+  display: grid; grid-template-columns: 1fr 1fr; flex: 0 0 185px;
+  min-width: 0; padding: 3px; border: 1px solid #42424a;
+  border-radius: 7px; background: #101012;
+}
+.skin-model-switch button {
+  border: 0; border-radius: 5px; padding: 6px 8px;
+  background: transparent; color: #91919b;
+  font-size: 11px; font-weight: 600;
+}
+.skin-model-switch button.active {
+  color: #f0f0f2; background: #35353c;
+  box-shadow: inset 0 0 0 1px #5f5f68;
+}
+.skin-model-switch button:hover:not(:disabled):not(.active) {
+  background: #242429; color: #d9d9de;
+}
+.skin-model-switch button:focus-visible {
+  outline: 2px solid #c3c5cd; outline-offset: 2px;
+}
+
+/* Two-pane settings: gameplay preferences on the left and live 3D skins on the right. */
+.settings-dialog {
+  width: 685px;
+  /* Keep a stable, compact size even when a skin is added or removed. */
+  height: min(510px, calc(100vh - 32px));
+  max-width: calc(100vw - 38px);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 21px 15px;
+}
+.settings-head { flex-shrink: 0; margin-bottom: 16px; }
+.settings-layout {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .96fr);
+  gap: 17px;
+  min-height: 0;
+  align-content: start;
+  overflow: hidden;
+}
+.settings-fields { min-width: 0; padding: 7px 16px 0 1px; border-right: 1px solid #34343a; }
+.settings-skin-column { min-width: 0; padding: 1px 5px 4px 0; }
+.settings-layout .setting-field { margin-bottom: 25px; }
+.settings-layout .memory-field { margin-bottom: 28px; }
+.settings-layout .skin-settings { margin: 0; }
+.settings-layout .skin-section-heading { margin-bottom: 9px; }
+.settings-dialog > .settings-error { flex-shrink: 0; margin: 10px 0 0; max-height: 100px; overflow-y: auto; white-space: pre-wrap; }
+.skin-preview-panel {
+  height: clamp(190px, calc(100vh - 290px), 300px);
+  min-height: 0;
+  margin: 0 auto 11px;
+  width: 100%;
+  max-width: 285px;
+  overflow: hidden;
+  border: 1px solid #3a3a41;
+  border-radius: 9px;
+  background: radial-gradient(ellipse at 50% 32%, #32323a 0%, #232329 56%, #18181c 100%);
+}
+.skin-viewer-canvas { width: 100%; height: calc(100% - 2px); position: relative; }
+.skin-viewer-canvas canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.skin-viewer-canvas canvas:active { cursor: grabbing; }
+.skin-preview-unavailable { height: 100%; }
+/* Compact button row without the extra framed panel. */
+.skin-action-buttons {
+  display: flex;
+  gap: 9px;
+  max-width: 285px;
+  margin: 0 auto 10px;
+}
+.skin-upload-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  flex: 1 1 0; min-width: 0;
+  min-height: 36px; padding: 9px 13px; border: 0; border-radius: 7px;
+  color: #16161a; background: #e7e7eb;
+  box-shadow: inset 0 0 0 1px #ffffff70;
+  font-size: 11px; font-weight: 700;
+}
+.skin-upload-button:hover:not(:disabled) {
+  background: #fff; box-shadow: inset 0 0 0 1px #fff;
+}
+.skin-delete-current {
+  display: grid; place-items: center; flex: 0 0 36px; height: 36px;
+  padding: 0; border: 1px solid #45454e; border-radius: 7px;
+  color: #d5d5dc; background: #2b2b31;
+}
+.skin-delete-current:hover:not(:disabled) {
+  border-color: #95646c; background: #43282e;
+}
+
+
+/* Launch window reports actual steps from game-runtime, without fabricated progress. */
+.launch-overlay {
+  position: fixed; inset: 0; z-index: 30;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(0, 0, 0, .78); backdrop-filter: blur(7px);
+}
+.launch-dialog {
+  width: 410px; max-width: 100%;
+  padding: 28px 30px 29px;
+  text-align: center;
+  color: #eeeef1;
+  background: #1b1b1f; border: 1px solid #43434c;
+  border-radius: 12px; box-shadow: 0 26px 75px #000a;
+}
+.launch-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.launch-kicker { font-size: 10px; font-weight: 720; letter-spacing: .16em; }
+.launch-version { font-size: 10px; color: #8d8d96; }
+.launch-activity {
+  width: 66px; height: 66px; margin: 27px auto 17px;
+  display: grid; place-items: center; color: #e5e5e9;
+  border-radius: 14px; border: 1px solid #464650;
+  background: linear-gradient(135deg, #303037, #202025);
+}
+.launch-dialog h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+.launch-detail { font-size: 12px; color: #a3a3ae; line-height: 1.65; min-height: 40px; overflow-wrap: anywhere; }
+.launch-progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 25px; }
+.launch-progress-step {
+  display: grid; justify-items: center; gap: 9px; padding-top: 11px;
+  border-top: 2px solid #38383e; color: #797982; font-size: 10px;
+}
+.launch-progress-step.current, .launch-progress-step.complete { color: #efeff2; border-color: #bcbcc3; }
+.launch-progress-dot { width: 7px; height: 7px; border-radius: 50%; background: #494951; }
+.launch-progress-step.complete .launch-progress-dot { background: #d5d5db; }
+.launch-progress-step.current .launch-progress-dot { background: #f4f4f6; box-shadow: 0 0 0 4px #ffffff18; }
+.launch-dismiss {
+  margin-top: 24px; border: 0; border-radius: 6px; padding: 11px 24px;
+  color: #111114; background: #e7e7eb; font-size: 12px; font-weight: 650;
+}
+.launch-dismiss:hover { background: #fff; }
+
+.required-update-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: #0d0d0ef5; }
+.required-update-dialog { width: 440px; height: 320px; max-width: 100%; padding: 30px; display: flex; flex-direction: column; gap: 8px; background: #19191c; border: 1px solid #3c3c42; border-radius: 12px; }
+.required-update-dialog h2 { margin: 0; min-height: 54px; font-size: 22px; }
+.required-update-dialog p { font-size: 13px; line-height: 1.6; color: #ababaf; margin: 0; min-height: 42px; }
+.required-update-dialog p[role="status"] { min-height: 54px; }
+.required-update-meter { height: 8px; flex-shrink: 0; }
+.required-update-dialog progress { display: block; height: 8px; width: 100%; accent-color: #ebebed; }
+.required-update-actions { margin-top: auto; min-height: 43px; display: flex; justify-content: center; align-items: center; }
+.launcher-update-banner { width: max-content; min-height: 50px; }
+
+.jvm-field { margin-bottom: 0; }
+.jvm-field input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+.jvm-hint { font-size: 11px; color: #8c8c94; margin: 8px 0 0; line-height: 1.4; }
+
+.bar-settings-button {
+  position: absolute;
+  right: 35px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .035);
+  color: #a5a5ad;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, transform .1s;
+}
+.bar-settings-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .20);
+  color: #ffffff;
+}
+.bar-settings-button:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.96);
+}

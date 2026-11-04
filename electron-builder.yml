@@ -1,0 +1,41 @@
+appId: org.events.launcher
+productName: Events Launcher
+directories:
+  output: release
+files:
+  - assets/launcher.ico
+  - dist/**/*
+  - main.cjs
+  - game-runtime.json
+  - src/main/**/*
+  - src/main/game-runtime.cjs
+  - src/main/mod-integrity-guard.cjs
+  - src/main/install-error.cjs
+  - src/main/minecraft-downloads.cjs
+  - src/main/release-manifest.cjs
+  - src/main/launcher-updater.cjs
+  - src/main/launcher-settings.cjs
+  - src/main/gpu-preference.cjs
+  - src/main/launcher-session.cjs
+  - src/main/default-steve.cjs
+  - src/main/skin-library.cjs
+  - src/main/skin-loader-installer.cjs
+  - src/main/modpack-installer.cjs
+  - src/main/storage-fetch.cjs
+  - project-war.modpack.json
+  - src/main/neoforge-installer.cjs
+  - src/preload.cjs
+  - package.json
+win:
+  icon: assets/launcher.ico
+  target: nsis
+  forceCodeSigning: false
+publish:
+  provider: github
+  owner: Fastyk829
+  repo: events-launcher
+nsis:
+  installerIcon: assets/launcher.ico
+  uninstallerIcon: assets/launcher.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
