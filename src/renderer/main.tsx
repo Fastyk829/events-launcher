@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CircleAlert, LoaderCircle, Play, RotateCcw, Settings, Trash2, Upload, User, X } from 'lucide-react';
 import { events } from '../shared/events';
@@ -53,6 +53,8 @@ function App() {
   const [state, setState] = useState<RuntimeState>(initialState);
   const [settings, setSettings] = useState<LauncherSettings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [nicknameRequired, setNicknameRequired] = useState(false);
+  const nicknameInput = useRef<HTMLInputElement>(null);
   const [draftNickname, setDraftNickname] = useState('');
   const [draftMemoryMb, setDraftMemoryMb] = useState(4096);
   const [draftGpuPreference, setDraftGpuPreference] = useState<LauncherSettings['gpuPreference']>('automatic');
@@ -221,11 +223,13 @@ function App() {
       await perform(() => window.eventsLauncher.install());
       return;
     }
-    const nickname = settings?.nickname ?? '';
+    const nickname = draftNickname.trim();
     if (!/^[A-Za-z0-9_]{3,16}$/.test(nickname)) {
-      await openSettings();
+      setNicknameRequired(true);
+      nicknameInput.current?.focus();
       return;
     }
+    setNicknameRequired(false);
     setState((previous) => ({ ...previous, error: null }));
     await perform(() => window.eventsLauncher.launch(nickname));
   }
@@ -329,10 +333,12 @@ function App() {
       </section>
 
       <nav className="pack-bar" aria-label="Выбор сборки">
-        <div className={'player-nickname-box' + (draftNickname.length > 0 && draftNickname.length < 3 ? ' invalid' : '')}
+        <div className={'player-nickname-box' + ((nicknameRequired || draftNickname.length > 0) && !/^[A-Za-z0-9_]{3,16}$/.test(draftNickname) ? ' invalid' : '')}
           title={draftNickname.length > 0 && draftNickname.length < 3 ? 'От 3 до 16 символов (A-Z, 0-9, _)' : 'Игровой ник'}>
           <User size={15} className="player-nickname-icon" aria-hidden="true" />
           <input
+            ref={nicknameInput}
+            aria-invalid={(nicknameRequired || draftNickname.length > 0) && !/^[A-Za-z0-9_]{3,16}$/.test(draftNickname)}
             type="text"
             className="player-nickname-input"
             placeholder="Игровой ник"

@@ -67,3 +67,32 @@ test('EventGameRuntime.getExpectedMods reads modFiles and CustomSkinLoader', asy
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('Java falls back to Azul after metadata or archive timeout', async (t) => {
+  const { downloadJavaArchive, azulAsset } = require('../src/main/game-runtime.cjs');
+  const azul = { name: 'zulu21.54.109-ca-jre21.0.13.0.3-win_x64.zip', java_version: [21, 0, 13], sha256_hash: 'b'.repeat(64) };
+  azul.download_url = 'https://cdn.azul.com/zulu/bin/' + azul.name;
+  assert.equal(azulAsset([azul]).checksum, azul.sha256_hash);
+  assert.throws(() => azulAsset([{ ...azul, download_url: 'https://evil.example/a.zip' }]));
+  assert.throws(() => azulAsset([{ ...azul, java_version: [17] }]));
+  for (const metadataFails of [true, false]) {
+    let calls = 0;
+    t.mock.method(global, 'fetch', async url => {
+      if (String(url).includes('adoptium')) {
+        if (metadataFails) throw new Error('timeout');
+        return Response.json([{ binary: { package: { name: 'OpenJDK21U-jre_x64_windows_hotspot_21.zip', link: 'https://github.com/java.zip', checksum: 'a'.repeat(64), size: 100 } } }]);
+      }
+      return Response.json([azul]);
+    });
+    const result = await downloadJavaArchive('cache', () => {}, async url => {
+      calls++;
+      if (url.includes('github')) throw new Error('archive timeout');
+      return 'verified-zulu.zip';
+    });
+    assert.equal(result, 'verified-zulu.zip');
+    assert.equal(calls, metadataFails ? 1 : 2);
+    t.mock.restoreAll();
+  }
+  t.mock.method(global, 'fetch', async () => { throw new Error('timeout'); });
+  await assert.rejects(downloadJavaArchive('cache', () => {}), /Eclipse Temurin.*Azul Zulu/);
+});

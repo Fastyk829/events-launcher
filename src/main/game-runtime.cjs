@@ -26,10 +26,12 @@ const game = require('../../game-runtime.json');
 const { formatInstallError } = require('./install-error.cjs');
 const { withMinecraftDownloads } = require('./minecraft-downloads.cjs');
 const { DownloadProgressMeter } = require('./download-progress.cjs');
+const { fetchWithIdleTimeout } = require('./storage-fetch.cjs');
 
 const ADOPTIUM_API = 'https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse';
+const AZUL_API = 'https://api.azul.com/metadata/v1/zulu/packages/?java_version=21&os=windows&arch=x64&archive_type=zip&java_package_type=jre&javafx_bundled=false&release_status=ga&availability_types=CA&latest=true&include_fields=sha256_hash&page_size=1';
 const MAX_JAVA_ARCHIVE = 250 * 1024 * 1024;
-const ALLOWED_JAVA_HOSTS = new Set(['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com']);
+const ALLOWED_JAVA_HOSTS = new Set(['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com', 'cdn.azul.com']);
 const MAX_REDIRECTS = 5;
 
 function safeNickname(name) {
@@ -59,6 +61,41 @@ function javaAsset(assets) {
   return { url: url.toString(), checksum: pkg.checksum, size: pkg.size };
 }
 
+function azulAsset(assets) {
+  const pkg = assets?.[0];
+  if (pkg?.java_version?.[0] !== 21 ||
+      !/^zulu21\.[\w.-]+-ca-jre21\.[\w.-]+-win_x64\.zip$/.test(pkg?.name || '') ||
+      !/^[a-f0-9]{64}$/.test(pkg?.sha256_hash || '')) {
+    throw new Error('Некорректные метаданные Azul Java 21');
+  }
+  const url = new URL(pkg.download_url);
+  if (url.protocol !== 'https:' || url.hostname !== 'cdn.azul.com' || url.username || url.password ||
+      url.pathname !== '/zulu/bin/' + pkg.name) throw new Error('Недоверенный источник Azul Java');
+  return { url: url.toString(), checksum: pkg.sha256_hash, size: MAX_JAVA_ARCHIVE };
+}
+
+async function downloadJavaArchive(root, progress, download = downloadVerifiedArchive) {
+  const sources = [
+    { name: 'Eclipse Temurin', api: ADOPTIUM_API, parse: javaAsset, file: 'temurin21-jre.zip' },
+    { name: 'Azul Zulu', api: AZUL_API, parse: azulAsset, file: 'zulu21-jre.zip' },
+  ];
+  const failures = [];
+  for (const source of sources) {
+    try {
+      progress(`Получаем Java 21 (${source.name})…`, null);
+      const res = await fetch(source.api, { signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const pkg = source.parse(await res.json());
+      return await download(pkg.url, join(root, 'downloads', source.file), pkg.checksum, pkg.size,
+        progress, source.parse === azulAsset ? undefined : pkg.size);
+    } catch (error) {
+      failures.push(new Error(source.name + ': ' + (error.message || error), { cause: error }));
+      if (source !== sources.at(-1)) progress('Источник Java недоступен. Пробуем резервный источник…', null);
+    }
+  }
+  throw new AggregateError(failures, 'Не удалось скачать Java 21. ' + failures.map(e => e.message).join('; '));
+}
+
 async function downloadFollowingTrustedRedirects(url, initialHostname, max = MAX_REDIRECTS) {
   let current = new URL(url);
   for (let i = 0; i <= max; i++) {
@@ -66,7 +103,7 @@ async function downloadFollowingTrustedRedirects(url, initialHostname, max = MAX
         (initialHostname === 'java' && !ALLOWED_JAVA_HOSTS.has(current.hostname))) {
       throw new Error('Недоверенный адрес загрузки');
     }
-    const res = await fetch(current, { redirect: 'manual', signal: AbortSignal.timeout(120_000) });
+    const res = await fetchWithIdleTimeout(fetch, current, { redirect: 'manual' }, 60_000, 30_000);
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const location = res.headers.get('location');
       await res.body?.cancel();
@@ -157,12 +194,7 @@ async function ensureJava(root, progress) {
   const javaRoot = join(root, 'java', '21');
   const cached = await findJava(javaRoot);
   if (cached) return cached;
-  progress('Получаем Java 21 (Eclipse Temurin)…');
-  const res = await fetch(ADOPTIUM_API, { signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error('Не удалось получить Java 21: HTTP ' + res.status);
-  const pkg = javaAsset(await res.json());
-  progress('Скачиваем Java 21…');
-  const archive = await downloadVerifiedArchive(pkg.url, join(root, 'downloads', 'temurin21-jre.zip'), pkg.checksum, pkg.size, progress, pkg.size);
+  const archive = await downloadJavaArchive(root, progress);
   const stage = join(root, 'java', '.staging-' + randomUUID());
   await mkdir(stage, { recursive: true });
   try {
@@ -616,4 +648,4 @@ class EventGameRuntime {
   }
 }
 
-module.exports = { EventGameRuntime, safeNickname, offlineUuid, javaAsset, neoforgeVersionId };
+module.exports = { EventGameRuntime, safeNickname, offlineUuid, javaAsset, azulAsset, downloadJavaArchive, neoforgeVersionId };
