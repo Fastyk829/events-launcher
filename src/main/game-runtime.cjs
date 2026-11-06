@@ -14,6 +14,7 @@ const extractZip = extractZipPackage.default || extractZipPackage;
 const { getVersionList, installTask, installDependenciesTask } = require('@xmcl/installer');
 const { Version, launch } = require('@xmcl/core');
 const { downloadNeoForgeInstaller } = require('./neoforge-installer.cjs');
+const { prepareNeoForgeLibraries } = require('./neoforge-libraries.cjs');
 const { configuredModpack, getInstalledPack, installModpack } = require('./modpack-installer.cjs');
 const { memoryLimits, normalizeSettings, validateSettings } = require('./launcher-settings.cjs');
 const { applyGpuPreference } = require('./gpu-preference.cjs');
@@ -364,6 +365,7 @@ class EventGameRuntime {
       if (!versionId) {
         this.update('installing', 'Проверяем загрузку установщика NeoForge…');
         const installer = await downloadNeoForgeInstaller(join(this.root, 'downloads'), undefined, downloadProgress);
+        await prepareNeoForgeLibraries(installer, this.minecraftRoot, downloadProgress);
         const profilesPath = join(this.minecraftRoot, 'launcher_profiles.json');
         try {
           await stat(profilesPath);
