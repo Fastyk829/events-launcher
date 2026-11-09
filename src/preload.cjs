@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('eventsLauncher', Object.freeze({
   removeSkin: (id) => ipcRenderer.invoke('events:skin-remove', id),
   saveSettings: (settings) => ipcRenderer.invoke('events:save-settings', settings),
   install: () => ipcRenderer.invoke('events:install'),
+  restoreSettings: (kind) => ipcRenderer.invoke('events:restore-settings', kind),
   installPack: () => ipcRenderer.invoke('events:install-pack'),
   launch: (nickname) => ipcRenderer.invoke('events:launch', nickname),
   onProgress: (listener) => {
@@ -30,3 +31,4 @@ contextBridge.exposeInMainWorld('eventsLauncher', Object.freeze({
     return () => ipcRenderer.removeListener('events:progress', wrapped);
   },
 }));
+

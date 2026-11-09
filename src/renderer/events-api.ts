@@ -63,6 +63,7 @@ export type EventsLauncherBridge = {
   removeSkin(id: string): Promise<SkinLibrarySnapshot>;
   saveSettings(settings: Pick<LauncherSettings, 'nickname' | 'memoryMb' | 'gpuPreference'> & { jvmArguments?: string }): Promise<LauncherSettings>;
   install(): Promise<RuntimeState>;
+  restoreSettings(kind: 'configs' | 'options'): Promise<RuntimeState>;
   installPack(): Promise<RuntimeState>;
   launch(nickname: string): Promise<RuntimeState>;
   onProgress(listener: (state: RuntimeState) => void): () => void;
@@ -73,3 +74,4 @@ declare global {
     eventsLauncher: EventsLauncherBridge;
   }
 }
+

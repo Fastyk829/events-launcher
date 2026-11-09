@@ -96,3 +96,18 @@ test('force cannot overwrite options.txt or write a non-existent config file', a
     await rm(base, { recursive: true, force: true });
   }
 });
+
+test('manual settings restore overwrites selected settings and preserves mods and other settings', async () => {
+ const base = await mkdtemp(join(tmpdir(), 'events-restore-'));
+ try {
+  const stage = join(base, 'stage'), instance = join(base, 'instance');
+  await write(stage, 'options.txt', 'pack options');
+  await write(instance, 'options.txt', 'user options');
+  await write(instance, 'config/user.toml', 'user config');
+  await write(instance, 'mods/keep.jar', 'mod');
+  await applyStagedModpack(stage, instance, ['options.txt'], [], {}, () => {}, true);
+  assert.equal(await read(instance, 'options.txt'), 'pack options');
+  assert.equal(await read(instance, 'config/user.toml'), 'user config');
+  assert.equal(await read(instance, 'mods/keep.jar'), 'mod');
+ } finally { await rm(base, { recursive: true, force: true }); }
+});

@@ -8,6 +8,9 @@ const { createLauncherUpdater } = require('./src/main/launcher-updater.cjs');
 
 let runtime;
 let launcherUpdater;
+const presence = require('./src/main/discord-presence.cjs').createDiscordPresence(
+  require('./src/main/discord-presence.json').applicationId);
+app.on('before-quit', () => presence.stop());
 
 function createWindow() {
   const windowTitle = 'Events Launcher ' + app.getVersion();
@@ -51,6 +54,7 @@ app.whenReady().then(async () => {
     console.warn('[events] Minecraft runtime currently supports Windows x64 only');
   }
   runtime = new EventGameRuntime((state) => {
+    presence.update(state);
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send('events:progress', state);
     }
@@ -80,6 +84,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('events:skin-model', (_event, id, model) => runtime.skins.setModel(id, model));
   ipcMain.handle('events:skin-remove', (_event, id) => runtime.skins.remove(id));
   ipcMain.handle('events:install', () => runtime.install());
+  ipcMain.handle('events:restore-settings', (_event, kind) => runtime.restoreSettings(kind));
   ipcMain.handle('events:install-pack', () => runtime.installPack());
   ipcMain.handle('events:launch', async (_event, nickname) => {
     await launcherUpdater.ensureCurrent();
@@ -107,3 +112,4 @@ app.whenReady().then(async () => {
 }).catch((error) => console.error('[events] startup failed', error));
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+

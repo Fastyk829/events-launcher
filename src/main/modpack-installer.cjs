@@ -315,7 +315,7 @@ function forceConfigPaths(manifest) {
 // Protect user options and config files by default. The pack author can
 // explicitly force selected config files for a compatibility-breaking update.
 // Forced config updates replace the selected files directly.
-async function applyStagedModpack(staging, instanceRoot, paths, previousPaths, manifest, onProgress) {
+async function applyStagedModpack(staging, instanceRoot, paths, previousPaths, manifest, onProgress, restore = false) {
   const wanted = new Set(paths.map((path) => path.toLowerCase()));
   const forced = forceConfigPaths(manifest);
   for (const key of forced) {
@@ -336,7 +336,7 @@ async function applyStagedModpack(staging, instanceRoot, paths, previousPaths, m
     if (prior && (!prior.isFile() || prior.isSymbolicLink())) {
       throw new Error('На месте файла сборки находится не обычный файл: ' + path);
     }
-    if (prior && isProtectedFile(path) && !forced.has(path.toLowerCase())) {
+    if (!restore && prior && isProtectedFile(path) && !forced.has(path.toLowerCase())) {
       kept++;
       continue;
     }
@@ -372,7 +372,7 @@ async function applyStagedModpack(staging, instanceRoot, paths, previousPaths, m
 
   // Purge any extraneous/injected files in mods/ (except CustomSkinLoader)
   const modsRoot = join(instanceRoot, 'mods');
-  const modEntries = await readdir(modsRoot, { withFileTypes: true }).catch(() => []);
+  const modEntries = restore ? [] : await readdir(modsRoot, { withFileTypes: true }).catch(() => []);
   for (const entry of modEntries) {
     const relKey = ('mods/' + entry.name).toLowerCase();
     if (!wanted.has(relKey) && entry.name !== 'CustomSkinLoader-Events.jar') {
@@ -439,8 +439,22 @@ async function installModpack(root, instanceRoot, onProgress, manifest = config)
   }
 }
 
+async function restorePackSettings(root, instanceRoot, manifest, kind, onProgress) {
+  if (!['configs', 'options'].includes(kind)) throw new Error('Неизвестный тип настроек');
+  const archive = await downloadArchive(root, onProgress, undefined, manifest);
+  const staging = join(root, 'downloads', '.restore-' + randomUUID());
+  try {
+    const paths = (await extractModpack(archive, staging, onProgress)).filter(path =>
+      kind === 'options' ? path === 'options.txt' : /^(config|defaultconfigs)\//.test(path));
+    if (!paths.length) throw new Error('Эти настройки отсутствуют в архиве сборки');
+    await applyStagedModpack(staging, instanceRoot, paths, [], { ...manifest, forceConfigFiles: [] }, onProgress, true);
+  } finally { await rm(staging, { recursive: true, force: true }).catch(() => {}); }
+}
+
 module.exports = {
+  restorePackSettings,
   configuredModpack, trustedHost, googleDriveFileId,
   resolveSource, validateZipPath, downloadArchive,
   getInstalledPack, installModpack, applyStagedModpack, isProtectedFile, forceConfigPaths,
 };
+

@@ -419,6 +419,13 @@ function App() {
               </select>
               <p className="gpu-hint">Применится при следующем запуске игры.</p>
             </div>
+            <div className="setting-field">
+              <button type="button" className="skin-upload-button" disabled={busy || running || requestBusy || !state.packInstalled}
+                onClick={() => void perform(() => window.eventsLauncher.restoreSettings('configs'))}>Обновить конфиги</button>
+              <button type="button" className="skin-upload-button" disabled={busy || running || requestBusy || !state.packInstalled}
+                onClick={() => void perform(() => window.eventsLauncher.restoreSettings('options'))}>Обновить options.txt</button>
+              <p className="gpu-hint">Внимание: могут сброситься назначения клавиш и ваши личные настройки.</p>
+            </div>
             <div className="setting-field jvm-field">
               <label htmlFor="jvm-arguments">Аргументы JVM</label>
               <input id="jvm-arguments" type="text" spellCheck={false}
@@ -495,3 +502,4 @@ function App() {
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode><App /></React.StrictMode>,
 );
+

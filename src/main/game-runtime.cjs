@@ -437,6 +437,22 @@ class EventGameRuntime {
     }
   }
 
+  async restoreSettings(kind) {
+    if (this.busy || this.process) throw new Error('Закройте игру и дождитесь завершения установки');
+    if (!this.packInstalled) throw new Error('Сначала установите сборку');
+    this.busy = true;
+    try {
+      const manifest = await this.fetchPackStatus();
+      if (!manifest) throw new Error('Сборка недоступна');
+      await require('./modpack-installer.cjs').restorePackSettings(this.root, this.instanceRoot, manifest, kind,
+        (detail, progress = null) => this.update('installing-pack', detail, null, progress));
+      return this.update('ready', kind === 'options' ? 'options.txt обновлён' : 'Конфиги обновлены');
+    } catch (error) {
+      this.update('ready', 'Не удалось обновить настройки', error.message);
+      throw error;
+    } finally { this.busy = false; }
+  }
+
   async installPack() {
     if (this.busy || this.process) throw new Error('Установка или игра уже запущена');
     if (!await readReady(this.root)) throw new Error('Сначала установи Minecraft и NeoForge');
@@ -651,3 +667,4 @@ class EventGameRuntime {
 }
 
 module.exports = { EventGameRuntime, safeNickname, offlineUuid, javaAsset, azulAsset, downloadJavaArchive, neoforgeVersionId };
+
