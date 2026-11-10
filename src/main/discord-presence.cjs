@@ -3,7 +3,7 @@ const net = require('node:net');
 const { randomUUID } = require('node:crypto');
 function activityFor(phase, start) {
   const states = { running: 'Играет в Project War', launching: 'Готовится к игре', installing: 'Готовится к игре', 'installing-pack': 'Готовится к игре', 'checking-pack': 'Готовится к игре' };
-  return { details: 'Minecraft • Project War', state: states[phase] || 'В лаунчере', timestamps: { start }, instance: false };
+  return { state: states[phase] || 'В лаунчере', timestamps: { start }, instance: false };
 }
 function createDiscordPresence(clientId) {
   let socket, timer, stopped = false, ready = false, index = 0, phase = 'idle', start = Math.floor(Date.now() / 1000), lastPhase;
